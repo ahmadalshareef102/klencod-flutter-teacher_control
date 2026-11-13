@@ -50,7 +50,7 @@ class CoreDatabase {
   final Database db;
   final StreamController<void> _changes = StreamController<void>.broadcast();
 
-  static const int version = 1;
+  static const int version = 2;
   static const String fileName = 'teacher_control.db';
 
   static Future<CoreDatabase> open({String? path, DatabaseFactory? factory}) async {
@@ -58,7 +58,14 @@ class CoreDatabase {
     final dbPath = path ?? p.join(await f.getDatabasesPath(), fileName);
     final db = await f.openDatabase(
       dbPath,
-      options: OpenDatabaseOptions(version: version, onCreate: _create),
+      options: OpenDatabaseOptions(
+        version: version,
+        onConfigure: (db) async {
+          await db.execute('PRAGMA foreign_keys = ON');
+        },
+        onCreate: _create,
+        onUpgrade: _upgrade,
+      ),
     );
     return CoreDatabase._(db);
   }
@@ -91,6 +98,53 @@ class CoreDatabase {
         status TEXT NOT NULL DEFAULT 'draft',
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
       )''');
+    await _createGradeTables(db);
+  }
+
+  static Future<void> _upgrade(Database db, int oldV, int newV) async {
+    if (oldV < 2) await _createGradeTables(db);
+  }
+
+  static Future<void> _createGradeTables(Database db) async {
+    await db.execute('''
+      CREATE TABLE grade_sheets(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        gregorian_year TEXT NOT NULL DEFAULT '',
+        hijri_year TEXT NOT NULL DEFAULT '',
+        semester TEXT NOT NULL DEFAULT '',
+        month TEXT NOT NULL DEFAULT '',
+        subject TEXT NOT NULL DEFAULT '',
+        grade_level TEXT NOT NULL DEFAULT '',
+        section TEXT NOT NULL DEFAULT '',
+        paper_size TEXT NOT NULL DEFAULT 'A4',
+        landscape INTEGER NOT NULL DEFAULT 0,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      )''');
+    await db.execute('''
+      CREATE TABLE sheet_students(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        sheet_id INTEGER NOT NULL REFERENCES grade_sheets(id) ON DELETE CASCADE,
+        name TEXT NOT NULL,
+        name_key TEXT NOT NULL,
+        sort_order INTEGER NOT NULL,
+        UNIQUE(sheet_id, name_key)
+      )''');
+    await db.execute('''
+      CREATE TABLE sheet_columns(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        sheet_id INTEGER NOT NULL REFERENCES grade_sheets(id) ON DELETE CASCADE,
+        title TEXT NOT NULL,
+        max_score REAL NOT NULL,
+        position INTEGER NOT NULL
+      )''');
+    await db.execute('''
+      CREATE TABLE sheet_scores(
+        student_id INTEGER NOT NULL REFERENCES sheet_students(id) ON DELETE CASCADE,
+        column_id INTEGER NOT NULL REFERENCES sheet_columns(id) ON DELETE CASCADE,
+        value REAL NOT NULL,
+        PRIMARY KEY(student_id, column_id)
+      )''');
   }
 
   void notifyChanged() {
@@ -103,7 +157,7 @@ class CoreDatabase {
   }
 
   /// يبثّ نتيجة الاستعلام فور الاشتراك ثم عند كل تغيير في البيانات.
-  Stream<T> _watch<T>(Future<T> Function() query) {
+  Stream<T> watch<T>(Future<T> Function() query) {
     late final StreamController<T> controller;
     StreamSubscription<void>? sub;
 
@@ -139,7 +193,7 @@ class CoreDatabase {
   }
 
   Stream<Map<String, String>> watchAllValues() {
-    return _watch(() async {
+    return watch(() async {
       final rows = await db.query('key_values');
       return {for (final r in rows) r['key'] as String: r['value'] as String};
     });
@@ -147,7 +201,7 @@ class CoreDatabase {
 
   // ---------- جدول الحصص ----------
   Stream<List<TimetableSlot>> watchSlotsForDay(int day) {
-    return _watch(() async {
+    return watch(() async {
       final rows = await db.query(
         'timetable_slots',
         where: 'day = ?',
@@ -160,7 +214,7 @@ class CoreDatabase {
 
   // ---------- التحاضير ----------
   Stream<int> watchFinalLessonCount() {
-    return _watch(() async {
+    return watch(() async {
       final r = await db.rawQuery(
         "SELECT COUNT(*) AS c FROM lesson_plans WHERE status = 'final'",
       );

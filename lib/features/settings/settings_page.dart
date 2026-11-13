@@ -123,6 +123,16 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               .read(coreDatabaseProvider)
               .setValue(SettingsKeys.themeMode, s.first.name),
         ),
+        const SizedBox(height: 16),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('ترتيب أسماء الطلاب أبجدياً تلقائياً'),
+          subtitle: const Text('يُطبّق عند إضافة طالب أو استيراد أسماء أو تعديل اسم.'),
+          value: settings.autoSortStudents,
+          onChanged: (v) => ref
+              .read(coreDatabaseProvider)
+              .setValue(SettingsKeys.autoSortStudents, v ? '1' : '0'),
+        ),
       ],
     );
   }

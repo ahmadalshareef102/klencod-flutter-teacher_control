@@ -6,6 +6,7 @@ import '../../models/app_section.dart';
 import '../bell/bell_page.dart';
 import '../dashboard/dashboard_page.dart';
 import '../developer/developer_page.dart';
+import '../grades/grades_page.dart';
 import '../placeholder/placeholder_page.dart';
 import '../settings/settings_page.dart';
 
@@ -26,6 +27,8 @@ class HomeShell extends ConsumerWidget {
     switch (s) {
       case AppSection.dashboard:
         return const DashboardPage();
+      case AppSection.grades:
+        return const GradesPage();
       case AppSection.bell:
         return const BellPage();
       case AppSection.settings:

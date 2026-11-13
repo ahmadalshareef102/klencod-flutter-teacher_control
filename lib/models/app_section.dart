@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 enum AppSection {
   dashboard('الرئيسية', Icons.dashboard_rounded, null),
-  grades('كشف الدرجات', Icons.grading_rounded, 3),
+  grades('كشف الدرجات', Icons.grading_rounded, null),
   examEditor('محرر الاختبارات', Icons.edit_document, 4),
   lessons('تحضير الدروس', Icons.menu_book_rounded, 5),
   timetable('جدول الحصص', Icons.calendar_view_week_rounded, 6),
